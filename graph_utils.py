@@ -3,6 +3,11 @@ import numpy as np
 from collections import defaultdict
 import itertools
 import functools
+from functools import reduce
+import operator
+
+def product(iterable):
+    return reduce(operator.mul, iterable, 1)
 
 ## Graph processing functions
 
@@ -305,6 +310,27 @@ def build_triple_equalities(I, n):
   
   return A, var_matr, num_params 
 
+def total_num_of_combinations(I, var_matr, num_params, only_nonequivalent=True):
+    
+    # Find parametrizations for elements of a matrix that correspond to an edge
+    variants = defaultdict(list)
+
+    for x in range(len(I)):
+        for y in range(x+1, len(I)):
+            if len(I[x].intersection(I[y])) == 2:
+                inter = I[x].intersection(I[y])
+                i = I[x].difference(I[y]).pop()
+                j = inter.pop()
+                k = inter.pop()
+                l = I[y].difference(I[x]).pop()
+
+                variants[var_matr[i,l]].append([var_matr[i,j], var_matr[j,k], var_matr[k,l]])
+    
+    if only_nonequivalent:
+        return product([2**(len(var)-1) for element, var in variants.items()])
+    else:
+        return product([2**(len(var)) for element, var in variants.items()])
+    
 def one_param_iterator(k):
   for x in itertools.product([-1,1], repeat=k-1):
     yield (1,) + x
@@ -341,7 +367,8 @@ def build_variance_equalities_iterator(I, var_matr, num_params, only_nonequivale
     perm = functools.reduce(lambda x, y: x+y, p)
     A = []; b = []
     c = 0
-
+    openings = defaultdict(list)
+    
     for edge_key in variant_keys:
 
       var = variants[edge_key]
@@ -354,14 +381,17 @@ def build_variance_equalities_iterator(I, var_matr, num_params, only_nonequivale
 
         if perm[c] == 1:
           ai[var[k]] = -1; bi = 0
+          openings[edge_key].append((var[k], 1))
         elif perm[c] == -1:
           ai[var[k]] = 1; bi = 2
+          openings[edge_key].append((var[k], -1))
         
         c += 1
         A.append(ai)
         b.append(bi)
     
-    yield A, b, perm
+    
+    yield A, b, openings
 
 def build_inequalities(num_params):
 
